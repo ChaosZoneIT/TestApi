@@ -8,6 +8,9 @@ import java.util.List;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.path.json.JsonPath.from;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
+import static org.hamcrest.text.IsBlankString.blankOrNullString;
 
 public class ExchangeRatesSteps {
 
@@ -43,31 +46,35 @@ public class ExchangeRatesSteps {
 
     @Then("^Find and display from downloaded data exchange rates for currency code: ([A-Z]{3}) and currency name (.*)$")
     public void find_and_display_from_downloaded_data_exchange_rates_for_currency_code_and_currency_name(String currencyCode, String currencyName) {
-        String exchangeRateForCurrencyCode = from(response.asString()).getString("[0].rates.find{it.code == '" + currencyCode + "'}.mid");
+        String pathToRateByCurrencyCode = "[0].rates.find{it.code == '" + currencyCode + "'}.mid";
+        response.then().assertThat().body(pathToRateByCurrencyCode, is(not(blankOrNullString())));
+        String exchangeRateForCurrencyCode = from(response.asString()).getString(pathToRateByCurrencyCode);
         showExchangeRates(currencyCode, exchangeRateForCurrencyCode);
 
-        String exchangeRateForCurrencyName = response.jsonPath().getString("[0].rates.find{it.currency == '" + currencyName + "'}.mid");
+        String pathToRateByCurrencyName = "[0].rates.find{it.currency == '" + currencyName + "'}.mid";
+        response.then().assertThat().body(pathToRateByCurrencyName, is(not(blankOrNullString())));
+        String exchangeRateForCurrencyName = response.jsonPath().getString(pathToRateByCurrencyName);
         showExchangeRates(currencyName, exchangeRateForCurrencyName);
     }
 
-    @Then("and show currencies whose rates are higher than {int} and lower than {int}")
-    public void and_show_currencies_whose_rates_are_higher_than_and_lower_than(Integer higherExchange, Integer lowerExchange) {
-        List<String> currenciesWithRateHigher = response.jsonPath().getList("[0].rates.findAll{it.mid > " + higherExchange + "}.currency");
+    @Then("and show currencies whose rates are higher than {float} and lower than {float}")
+    public void and_show_currencies_whose_rates_are_higher_than_and_lower_than(float higherExchange, float lowerExchange) {
+        String pathToCurrenciesWithHigherExchangeRate = "[0].rates.findAll{it.mid > " + higherExchange + "}.currency";
+        List<String> currenciesWithRateHigher = response.jsonPath().getList(pathToCurrenciesWithHigherExchangeRate);
+        assertThat("No currencies found with a rate higher than " + higherExchange, currenciesWithRateHigher, hasSize(greaterThan(0)));
         showCurrenciesWhoseRatesIs(Rates.HIGHER, higherExchange, currenciesWithRateHigher);
 
-        List<String> currenciesWithRateLower = response.jsonPath().getList("[0].rates.findAll{it.mid < " + lowerExchange + "}.currency");
+        String pathToCurrenciesWithLowerExchangeRate = "[0].rates.findAll{it.mid < " + lowerExchange + "}.currency";
+        List<String> currenciesWithRateLower = response.jsonPath().getList(pathToCurrenciesWithLowerExchangeRate);
+        assertThat("No currencies found with a rate lower than " + lowerExchange, currenciesWithRateLower, hasSize(greaterThan(0)));
         showCurrenciesWhoseRatesIs(Rates.LOWER, lowerExchange, currenciesWithRateLower);
     }
 
-    private void showCurrenciesWhoseRatesIs(Rates rates, Integer value, List<String> currencies) {
+    private void showCurrenciesWhoseRatesIs(Rates rates, float value, List<String> currencies) {
         System.out.println("Currencies with a rate " + rates + " than " + value + ": " + String.join(", ", currencies));
     }
 
     private void showExchangeRates(String currency, String exchangeRateForCurrency) {
-        if (exchangeRateForCurrency != null && !exchangeRateForCurrency.isBlank()) {
-            System.out.println("Exchange rate for " + currency + ": " + exchangeRateForCurrency);
-        } else {
-            System.out.printf("No exchange rate found for: " + currency);
-        }
+        System.out.println("Exchange rate for " + currency + ": " + exchangeRateForCurrency);
     }
 }
